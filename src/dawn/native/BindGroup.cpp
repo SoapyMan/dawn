@@ -159,6 +159,28 @@ MaybeError ValidateCompatibilityModeTextureViewArrayLayer(DeviceBase* device,
     return {};
 }
 
+// @SoapyMan: texture views for 2D and Cube are compatible between 
+// array and non-array textures in render pipelines
+bool IsCompatibleTextureViewDimension(const wgpu::TextureViewDimension given, 
+                                      const wgpu::TextureViewDimension expected) {
+    switch (expected)
+    {
+    case wgpu::TextureViewDimension::Undefined:
+    case wgpu::TextureViewDimension::e1D:
+    case wgpu::TextureViewDimension::e3D:
+        return given == expected;
+    case wgpu::TextureViewDimension::e2D:
+    case wgpu::TextureViewDimension::e2DArray:
+        return given == wgpu::TextureViewDimension::e2D || given == wgpu::TextureViewDimension::e2DArray;
+    case wgpu::TextureViewDimension::Cube:
+    case wgpu::TextureViewDimension::CubeArray:
+        return given == wgpu::TextureViewDimension::Cube || given == wgpu::TextureViewDimension::CubeArray;
+    default:
+        DAWN_UNREACHABLE();
+        return false;
+    }
+}
+
 MaybeError ValidateSampledTextureBinding(DeviceBase* device,
                                          const BindGroupEntry& entry,
                                          const TextureBindingInfo& layout,
@@ -198,7 +220,7 @@ MaybeError ValidateSampledTextureBinding(DeviceBase* device,
                     "types (%s).",
                     supportedTypes, texture, requiredType);
 
-    DAWN_INVALID_IF(entry.textureView->GetDimension() != layout.viewDimension,
+    DAWN_INVALID_IF(!IsCompatibleTextureViewDimension(entry.textureView->GetDimension(), layout.viewDimension),
                     "Dimension (%s) of %s doesn't match the expected dimension (%s).",
                     entry.textureView->GetDimension(), entry.textureView, layout.viewDimension);
 
