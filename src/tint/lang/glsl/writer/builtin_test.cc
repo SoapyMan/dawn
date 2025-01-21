@@ -203,7 +203,7 @@ struct atomic_compare_exchange_result_i32 {
 };
 
 layout(binding = 0, std430)
-buffer v_block_1_ssbo {
+buffer f_v_block_ssbo {
   SB inner;
 } v_1;
 void main() {
@@ -236,7 +236,7 @@ struct atomic_compare_exchange_result_i32 {
 };
 
 layout(binding = 0, std430)
-buffer v_block_1_ssbo {
+buffer f_v_block_ssbo {
   int inner;
 } v_1;
 void main() {
@@ -274,7 +274,7 @@ struct SB {
 
 shared SB v;
 void foo_inner(uint tint_local_index) {
-  if ((tint_local_index == 0u)) {
+  if ((tint_local_index < 1u)) {
     v.padding = vec4(0.0f);
     atomicExchange(v.a, 0);
     atomicExchange(v.b, 0u);
@@ -319,7 +319,7 @@ struct SB {
 
 shared SB v;
 void foo_inner(uint tint_local_index) {
-  if ((tint_local_index == 0u)) {
+  if ((tint_local_index < 1u)) {
     v.padding = vec4(0.0f);
     atomicExchange(v.a, 0);
     atomicExchange(v.b, 0u);
@@ -370,7 +370,7 @@ struct atomic_compare_exchange_result_i32 {
 
 shared SB v;
 void foo_inner(uint tint_local_index) {
-  if ((tint_local_index == 0u)) {
+  if ((tint_local_index < 1u)) {
     v.padding = vec4(0.0f);
     atomicExchange(v.a, 0);
     atomicExchange(v.b, 0u);
@@ -691,8 +691,7 @@ precision highp int;
 
 f16vec4 tint_bitcast_to_f16(ivec2 src) {
   uvec2 v = uvec2(src);
-  f16vec2 v_1 = unpackFloat2x16(v.x);
-  return f16vec4(v_1, unpackFloat2x16(v.y));
+  return f16vec4(unpackFloat2x16(v.x), unpackFloat2x16(v.y));
 }
 void main() {
   ivec2 a = ivec2(1, 2);
@@ -715,8 +714,7 @@ precision highp float;
 precision highp int;
 
 ivec2 tint_bitcast_from_f16(f16vec4 src) {
-  uint v = packFloat2x16(src.xy);
-  return ivec2(uvec2(v, packFloat2x16(src.zw)));
+  return ivec2(uvec2(packFloat2x16(src.xy), packFloat2x16(src.zw)));
 }
 void main() {
   f16vec4 a = f16vec4(1.0hf, 2.0hf, 3.0hf, 4.0hf);
@@ -740,8 +738,7 @@ precision highp int;
 
 f16vec4 tint_bitcast_to_f16(uvec2 src) {
   uvec2 v = uvec2(src);
-  f16vec2 v_1 = unpackFloat2x16(v.x);
-  return f16vec4(v_1, unpackFloat2x16(v.y));
+  return f16vec4(unpackFloat2x16(v.x), unpackFloat2x16(v.y));
 }
 void main() {
   uvec2 a = uvec2(1u, 2u);
@@ -764,8 +761,7 @@ precision highp float;
 precision highp int;
 
 uvec2 tint_bitcast_from_f16(f16vec4 src) {
-  uint v = packFloat2x16(src.xy);
-  return uvec2(uvec2(v, packFloat2x16(src.zw)));
+  return uvec2(uvec2(packFloat2x16(src.xy), packFloat2x16(src.zw)));
 }
 void main() {
   f16vec4 a = f16vec4(1.0hf, 2.0hf, 3.0hf, 4.0hf);
@@ -788,9 +784,7 @@ precision highp float;
 precision highp int;
 
 f16vec4 tint_bitcast_to_f16(vec2 src) {
-  uvec2 v = floatBitsToUint(src);
-  f16vec2 v_1 = unpackFloat2x16(v.x);
-  return f16vec4(v_1, unpackFloat2x16(v.y));
+  return f16vec4(unpackFloat2x16(floatBitsToUint(src).x), unpackFloat2x16(floatBitsToUint(src).y));
 }
 void main() {
   vec2 a = vec2(1.0f, 2.0f);
@@ -813,8 +807,7 @@ precision highp float;
 precision highp int;
 
 vec2 tint_bitcast_from_f16(f16vec4 src) {
-  uint v = packFloat2x16(src.xy);
-  return uintBitsToFloat(uvec2(v, packFloat2x16(src.zw)));
+  return uintBitsToFloat(uvec2(packFloat2x16(src.xy), packFloat2x16(src.zw)));
 }
 void main() {
   f16vec4 a = f16vec4(1.0hf, 2.0hf, 3.0hf, 4.0hf);
@@ -896,7 +889,7 @@ struct TintTextureUniformData {
 };
 
 layout(binding = 0, std140)
-uniform tint_symbol_1_ubo {
+uniform f_tint_symbol_ubo {
   TintTextureUniformData inner;
 } v_1;
 uniform highp sampler2D v;
@@ -1007,10 +1000,8 @@ TEST_F(GlslWriterTest, ExtractBits) {
 precision highp int;
 
 void main() {
-  uint v = min(2u, 32u);
-  uint v_1 = min(3u, (32u - v));
-  int v_2 = int(v);
-  uint x = bitfieldExtract(1u, v_2, int(v_1));
+  int v = int(min(2u, 32u));
+  uint x = bitfieldExtract(1u, v, int(min(3u, (32u - min(2u, 32u)))));
 }
 )");
 }
@@ -1027,10 +1018,8 @@ TEST_F(GlslWriterTest, InsertBits) {
 precision highp int;
 
 void main() {
-  uint v = min(3u, 32u);
-  uint v_1 = min(4u, (32u - v));
-  int v_2 = int(v);
-  uint x = bitfieldInsert(1u, 2u, v_2, int(v_1));
+  int v = int(min(3u, 32u));
+  uint x = bitfieldInsert(1u, 2u, v, int(min(4u, (32u - min(3u, 32u)))));
 }
 )");
 }
@@ -1464,7 +1453,7 @@ TEST_F(GlslWriterTest, BuiltinArrayLength) {
 precision highp int;
 
 layout(binding = 0, std430)
-buffer SB_1_ssbo {
+buffer f_SB_ssbo {
   uint b[];
 } v;
 void main() {
@@ -1571,15 +1560,15 @@ TEST_F(GlslWriterTest, Modf_Scalar) {
     EXPECT_EQ(output_.glsl, GlslHeader() + R"(
 
 struct modf_result_f32 {
-  float fract;
+  float member_0;
   float whole;
 };
 
 float foo(float value) {
   modf_result_f32 v = modf_result_f32(0.0f, 0.0f);
-  v.fract = modf(value, v.whole);
+  v.member_0 = modf(value, v.whole);
   modf_result_f32 v_1 = v;
-  return (v_1.fract + v_1.whole);
+  return (v_1.member_0 + v_1.whole);
 }
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 void main() {
@@ -1603,15 +1592,15 @@ TEST_F(GlslWriterTest, Modf_Vector) {
     EXPECT_EQ(output_.glsl, GlslHeader() + R"(
 
 struct modf_result_vec4_f32 {
-  vec4 fract;
+  vec4 member_0;
   vec4 whole;
 };
 
 vec4 foo(vec4 value) {
   modf_result_vec4_f32 v = modf_result_vec4_f32(vec4(0.0f), vec4(0.0f));
-  v.fract = modf(value, v.whole);
+  v.member_0 = modf(value, v.whole);
   modf_result_vec4_f32 v_1 = v;
-  return (v_1.fract + v_1.whole);
+  return (v_1.member_0 + v_1.whole);
 }
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 void main() {
@@ -1635,15 +1624,15 @@ TEST_F(GlslWriterTest, Frexp_Scalar) {
     EXPECT_EQ(output_.glsl, GlslHeader() + R"(
 
 struct frexp_result_f32 {
-  float fract;
-  int exp;
+  float member_0;
+  int member_1;
 };
 
 float foo(float value) {
   frexp_result_f32 v = frexp_result_f32(0.0f, 0);
-  v.fract = frexp(value, v.exp);
+  v.member_0 = frexp(value, v.member_1);
   frexp_result_f32 v_1 = v;
-  return (v_1.fract + float(v_1.exp));
+  return (v_1.member_0 + float(v_1.member_1));
 }
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 void main() {
@@ -1667,15 +1656,15 @@ TEST_F(GlslWriterTest, Frexp_Vector) {
     EXPECT_EQ(output_.glsl, GlslHeader() + R"(
 
 struct frexp_result_vec4_f32 {
-  vec4 fract;
-  ivec4 exp;
+  vec4 member_0;
+  ivec4 member_1;
 };
 
 vec4 foo(vec4 value) {
   frexp_result_vec4_f32 v = frexp_result_vec4_f32(vec4(0.0f), ivec4(0));
-  v.fract = frexp(value, v.exp);
+  v.member_0 = frexp(value, v.member_1);
   frexp_result_vec4_f32 v_1 = v;
-  return (v_1.fract + vec4(v_1.exp));
+  return (v_1.member_0 + vec4(v_1.member_1));
 }
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 void main() {
@@ -2732,8 +2721,7 @@ precision highp int;
 
 uniform highp sampler2D t_s;
 void main() {
-  vec2 v = vec2(1.0f, 2.0f);
-  vec4 x = texture(t_s, v, clamp(3.0f, -16.0f, 15.9899997711181640625f));
+  vec4 x = texture(t_s, vec2(1.0f, 2.0f), clamp(3.0f, -16.0f, 15.9899997711181640625f));
 }
 )");
 }
@@ -2769,8 +2757,7 @@ precision highp int;
 
 uniform highp sampler2D t_s;
 void main() {
-  vec2 v = vec2(1.0f, 2.0f);
-  vec4 x = textureOffset(t_s, v, ivec2(4, 5), clamp(3.0f, -16.0f, 15.9899997711181640625f));
+  vec4 x = textureOffset(t_s, vec2(1.0f, 2.0f), ivec2(4, 5), clamp(3.0f, -16.0f, 15.9899997711181640625f));
 }
 )");
 }
@@ -2807,8 +2794,7 @@ precision highp int;
 uniform highp sampler2DArray t_s;
 void main() {
   vec2 v = vec2(1.0f, 2.0f);
-  float v_1 = clamp(3.0f, -16.0f, 15.9899997711181640625f);
-  vec4 x = texture(t_s, vec3(v, float(4u)), v_1);
+  vec4 x = texture(t_s, vec3(v, float(4u)), clamp(3.0f, -16.0f, 15.9899997711181640625f));
 }
 )");
 }
@@ -2846,8 +2832,7 @@ precision highp int;
 uniform highp sampler2DArray t_s;
 void main() {
   vec2 v = vec2(1.0f, 2.0f);
-  float v_1 = clamp(3.0f, -16.0f, 15.9899997711181640625f);
-  vec4 x = textureOffset(t_s, vec3(v, float(4u)), ivec2(4, 5), v_1);
+  vec4 x = textureOffset(t_s, vec3(v, float(4u)), ivec2(4, 5), clamp(3.0f, -16.0f, 15.9899997711181640625f));
 }
 )");
 }
@@ -2881,8 +2866,7 @@ precision highp int;
 
 uniform highp sampler3D t_s;
 void main() {
-  vec3 v = vec3(1.0f, 2.0f, 3.0f);
-  vec4 x = texture(t_s, v, clamp(3.0f, -16.0f, 15.9899997711181640625f));
+  vec4 x = texture(t_s, vec3(1.0f, 2.0f, 3.0f), clamp(3.0f, -16.0f, 15.9899997711181640625f));
 }
 )");
 }
@@ -2918,8 +2902,7 @@ precision highp int;
 
 uniform highp sampler3D t_s;
 void main() {
-  vec3 v = vec3(1.0f, 2.0f, 3.0f);
-  vec4 x = textureOffset(t_s, v, ivec3(4, 5, 6), clamp(3.0f, -16.0f, 15.9899997711181640625f));
+  vec4 x = textureOffset(t_s, vec3(1.0f, 2.0f, 3.0f), ivec3(4, 5, 6), clamp(3.0f, -16.0f, 15.9899997711181640625f));
 }
 )");
 }
@@ -2953,8 +2936,7 @@ precision highp int;
 
 uniform highp samplerCube t_s;
 void main() {
-  vec3 v = vec3(1.0f, 2.0f, 3.0f);
-  vec4 x = texture(t_s, v, clamp(3.0f, -16.0f, 15.9899997711181640625f));
+  vec4 x = texture(t_s, vec3(1.0f, 2.0f, 3.0f), clamp(3.0f, -16.0f, 15.9899997711181640625f));
 }
 )");
 }
@@ -2994,8 +2976,7 @@ precision highp int;
 uniform highp samplerCubeArray t_s;
 void main() {
   vec3 v = vec3(1.0f, 2.0f, 3.0f);
-  float v_1 = clamp(3.0f, -16.0f, 15.9899997711181640625f);
-  vec4 x = texture(t_s, vec4(v, float(4u)), v_1);
+  vec4 x = texture(t_s, vec4(v, float(4u)), clamp(3.0f, -16.0f, 15.9899997711181640625f));
 }
 )");
 }
@@ -4174,7 +4155,7 @@ precision highp int;
 uniform highp sampler2DArrayShadow t_s;
 void main() {
   vec2 v = vec2(1.0f, 2.0f);
-  float x = textureOffset(t_s, vec4(v, float(4u), 3.0f), ivec2(4, 5));
+  float x = textureGradOffset(t_s, vec4(v, float(4u), 3.0f), vec2(0.0f), vec2(0.0f), ivec2(4, 5));
 }
 )");
 }

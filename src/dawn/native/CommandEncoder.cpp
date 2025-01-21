@@ -36,6 +36,7 @@
 #include "dawn/common/Enumerator.h"
 #include "dawn/common/Math.h"
 #include "dawn/common/NonMovable.h"
+#include "dawn/native/Adapter.h"
 #include "dawn/native/ApplyClearColorValueWithDrawHelper.h"
 #include "dawn/native/BindGroup.h"
 #include "dawn/native/BlitBufferToDepthStencil.h"
@@ -754,8 +755,10 @@ ResultOrError<UnpackedPtr<RenderPassDescriptor>> ValidateRenderPassDescriptor(
     uint32_t maxColorAttachments = device->GetLimits().v1.maxColorAttachments;
     DAWN_INVALID_IF(
         descriptor->colorAttachmentCount > maxColorAttachments,
-        "Color attachment count (%u) exceeds the maximum number of color attachments (%u).",
-        descriptor->colorAttachmentCount, maxColorAttachments);
+        "Color attachment count (%u) exceeds the maximum number of color attachments (%u).%s",
+        descriptor->colorAttachmentCount, maxColorAttachments,
+        DAWN_INCREASE_LIMIT_MESSAGE(device->GetAdapter(), maxColorAttachments,
+                                    descriptor->colorAttachmentCount));
 
     auto colorAttachments = ityp::SpanFromUntyped<ColorAttachmentIndex>(
         descriptor->colorAttachments, descriptor->colorAttachmentCount);
@@ -968,6 +971,20 @@ bool ShouldUseTextureToBufferBlit(const DeviceBase* device,
         device->IsToggleEnabled(Toggle::UseBlitForRGB9E5UfloatTextureCopy)) {
         return true;
     }
+    // float16
+    if ((format.format == wgpu::TextureFormat::R16Float ||
+         format.format == wgpu::TextureFormat::RG16Float ||
+         format.format == wgpu::TextureFormat::RGBA16Float) &&
+        device->IsToggleEnabled(Toggle::UseBlitForFloat16TextureCopy)) {
+        return true;
+    }
+    // float32
+    if ((format.format == wgpu::TextureFormat::R32Float ||
+         format.format == wgpu::TextureFormat::RG32Float ||
+         format.format == wgpu::TextureFormat::RGBA32Float) &&
+        device->IsToggleEnabled(Toggle::UseBlitForFloat32TextureCopy)) {
+        return true;
+    }
     // Depth
     if (aspect == Aspect::Depth &&
         ((format.format == wgpu::TextureFormat::Depth16Unorm &&
@@ -1001,6 +1018,11 @@ bool ShouldUseT2B2TForT2T(const DeviceBase* device,
     // sRGB <-> non-sRGB
     if (srcFormat.format != dstFormat.format && srcFormat.baseFormat == dstFormat.baseFormat &&
         device->IsToggleEnabled(Toggle::UseT2B2TForSRGBTextureCopy)) {
+        return true;
+    }
+    // Snorm
+    if (srcFormat.IsSnorm() &&
+        device->IsToggleEnabled(Toggle::UseBlitForSnormTextureToBufferCopy)) {
         return true;
     }
     return false;

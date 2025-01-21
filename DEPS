@@ -103,7 +103,7 @@ deps = {
   },
 
   'third_party/depot_tools': {
-    'url': '{chromium_git}/chromium/tools/depot_tools.git@1b58dc68659445b1d97d8341f8158be25eab4957',
+    'url': '{chromium_git}/chromium/tools/depot_tools.git@58625e82c685426d441be5b422c9ad88e4867d20',
     'condition': 'dawn_standalone',
   },
 
@@ -274,22 +274,22 @@ deps = {
   },
 
   'third_party/angle': {
-    'url': '{chromium_git}/angle/angle@7fea539cc99bed8fd315cfbc5026952a133ac3ae',
+    'url': '{chromium_git}/angle/angle@c7cfbbc9029570a6f2ebc71b02fcbe3b2fc42141',
     'condition': 'dawn_standalone',
   },
 
   'third_party/swiftshader': {
-    'url': '{swiftshader_git}/SwiftShader@76855a9baecc97fa144ce70d7ae43a9f878e14c8',
+    'url': '{swiftshader_git}/SwiftShader@b99f866d5a5cbbbfc185bce80edfab11c1fad6aa',
     'condition': 'dawn_standalone',
   },
 
   'third_party/vulkan-deps': {
-    'url': '{chromium_git}/vulkan-deps@695916e164c993e207820d8b2edce51a644bbcf9',
+    'url': '{chromium_git}/vulkan-deps@55e70e1178e9ac427414bcc56fa0442ae3d88378',
     'condition': 'dawn_standalone',
   },
 
   'third_party/glslang/src': {
-    'url': '{chromium_git}/external/github.com/KhronosGroup/glslang@9c644fcb5b9a1a9c975c50a790fd14c5451292b0',
+    'url': '{chromium_git}/external/github.com/KhronosGroup/glslang@b5dc38707208efae0b7a1606790ca33d237d950e',
     'condition': 'dawn_standalone',
   },
 
@@ -299,37 +299,37 @@ deps = {
   },
 
   'third_party/spirv-headers/src': {
-    'url': '{chromium_git}/external/github.com/KhronosGroup/SPIRV-Headers@996c728cf7dcfb29845cfa15222822318f047810',
+    'url': '{chromium_git}/external/github.com/KhronosGroup/SPIRV-Headers@2b2e05e088841c63c0b6fd4c9fb380d8688738d3',
     'condition': 'dawn_standalone',
   },
 
   'third_party/spirv-tools/src': {
-    'url': '{chromium_git}/external/github.com/KhronosGroup/SPIRV-Tools@9117e042b93d4ff08d2406542708170f77aaa2a3',
+    'url': '{chromium_git}/external/github.com/KhronosGroup/SPIRV-Tools@b9d5ced92ac454caf526c3b80d5105a1f38878ce',
     'condition': 'dawn_standalone',
   },
 
   'third_party/vulkan-headers/src': {
-    'url': '{chromium_git}/external/github.com/KhronosGroup/Vulkan-Headers@cbcad3c0587dddc768d76641ea00f5c45ab5a278',
+    'url': '{chromium_git}/external/github.com/KhronosGroup/Vulkan-Headers@a03d2f6d5753b365d704d58161825890baad0755',
     'condition': 'dawn_standalone',
   },
 
   'third_party/vulkan-loader/src': {
-    'url': '{chromium_git}/external/github.com/KhronosGroup/Vulkan-Loader@b0177a972b8d47e823a4500cf88df88a8c27add7',
+    'url': '{chromium_git}/external/github.com/KhronosGroup/Vulkan-Loader@1586f33d6d79eb9ffa5963ce4f70423986b95d8a',
     'condition': 'dawn_standalone',
   },
 
   'third_party/vulkan-tools/src': {
-    'url': '{chromium_git}/external/github.com/KhronosGroup/Vulkan-Tools@15f2de809304aba619ee327f3273425418ca83de',
+    'url': '{chromium_git}/external/github.com/KhronosGroup/Vulkan-Tools@26c7bde34a4a253004af427d92b27656e386effc',
     'condition': 'dawn_standalone',
   },
 
   'third_party/vulkan-utility-libraries/src': {
-    'url': '{chromium_git}/external/github.com/KhronosGroup/Vulkan-Utility-Libraries@87ab6b39a97d084a2ef27db85e3cbaf5d2622a09',
+    'url': '{chromium_git}/external/github.com/KhronosGroup/Vulkan-Utility-Libraries@7b23ba7a5f86936a8d783baf64a77c38977d6890',
     'condition': 'dawn_standalone',
   },
 
   'third_party/vulkan-validation-layers/src': {
-    'url': '{chromium_git}/external/github.com/KhronosGroup/Vulkan-ValidationLayers@6c3011be72dd3f418a8902acab340e8c1a00864d',
+    'url': '{chromium_git}/external/github.com/KhronosGroup/Vulkan-ValidationLayers@cfc1f13b48eb4426446d43ed48d8c9510017ede4',
     'condition': 'dawn_standalone',
   },
 
@@ -344,17 +344,13 @@ deps = {
   },
 
   'third_party/dxc': {
-    'url': '{chromium_git}/external/github.com/microsoft/DirectXShaderCompiler@ac36a797d3470e8ee906b98457a59270d01db30d',
+    'url': '{chromium_git}/external/github.com/microsoft/DirectXShaderCompiler@e4636f06383f3ccb8aefc49aa9b83a0f63676036',
   },
 
   'third_party/dxheaders': {
     # The non-Windows build of DXC depends on DirectX-Headers, and at a specific commit (not ToT)
     'url': '{chromium_git}/external/github.com/microsoft/DirectX-Headers@980971e835876dc0cde415e8f9bc646e64667bf7',
     'condition': 'host_os != "win"',
-  },
-
-  'third_party/webgpu-headers': {
-    'url': '{chromium_git}/external/github.com/webgpu-native/webgpu-headers@8049c324dc7b3c09dc96ea04cb02860f272c8686',
   },
 
   'third_party/khronos/OpenGL-Registry': {
@@ -367,7 +363,7 @@ deps = {
 
   # WebGPU CTS - not used directly by Dawn, only transitively by Chromium.
   'third_party/webgpu-cts': {
-    'url': '{chromium_git}/external/github.com/gpuweb/cts@8690defa74b6975c10e85c113f121d4b2a3f2564',
+    'url': '{chromium_git}/external/github.com/gpuweb/cts@927348025a551f17d020789b3f31bc00de430016',
     'condition': 'build_with_chromium',
   },
 
@@ -381,7 +377,7 @@ deps = {
     'condition': 'dawn_node',
   },
   'third_party/gpuweb': {
-    'url': '{github_git}/gpuweb/gpuweb.git@2629ea6a98a2b87250aa165032f6d67c04c109f9',
+    'url': '{github_git}/gpuweb/gpuweb.git@5734d953766c44e10b535e000e14cdfbab0b79d7',
     'condition': 'dawn_node',
   },
 
@@ -395,7 +391,7 @@ deps = {
   },
 
   'tools/cmake': {
-    'condition': '(fetch_cmake or dawn_node) and (host_os == "mac" or host_os == "linux")',
+    'condition': '(fetch_cmake or dawn_node)',
     'packages': [{
       'package': 'infra/3pp/tools/cmake/${{platform}}',
       'version': Var('dawn_cmake_version'),
@@ -583,31 +579,6 @@ hooks = [
     'condition': 'dawn_standalone',
     'action': ['python3', 'build/util/lastchange.py',
                '-o', 'build/util/LASTCHANGE'],
-  },
-  # TODO(https://crbug.com/1180257): Use CIPD for CMake on Windows.
-  {
-    'name': 'cmake_win32',
-    'pattern': '.',
-    'condition': '(fetch_cmake or dawn_node) and host_os == "win"',
-    'action': [ 'python3',
-                'third_party/depot_tools/download_from_google_storage.py',
-                '--no_resume',
-                '--platform=win32',
-                '--no_auth',
-                '--bucket', 'chromium-tools',
-                Var('dawn_cmake_win32_sha1'),
-                '-o', 'tools/cmake-win32.zip'
-    ],
-  },
-  {
-    'name': 'cmake_win32_extract',
-    'pattern': '.',
-    'condition': '(fetch_cmake or dawn_node) and host_os == "win"',
-    'action': [ 'python3',
-                'scripts/extract.py',
-                'tools/cmake-win32.zip',
-                'tools/cmake-win32/',
-    ],
   },
 
   # Node binaries, when dawn_node is enabled

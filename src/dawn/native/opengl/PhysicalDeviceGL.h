@@ -41,7 +41,8 @@ class DisplayEGL;
 class PhysicalDevice : public PhysicalDeviceBase {
   public:
     static ResultOrError<Ref<PhysicalDevice>> Create(wgpu::BackendType backendType,
-                                                     Ref<DisplayEGL> display);
+                                                     Ref<DisplayEGL> display,
+                                                     bool forceES31AndNoExtensions);
 
     ~PhysicalDevice() override = default;
 
@@ -49,7 +50,7 @@ class PhysicalDevice : public PhysicalDeviceBase {
 
     // PhysicalDeviceBase Implementation
     bool SupportsExternalImages() const override;
-    bool SupportsFeatureLevel(FeatureLevel featureLevel) const override;
+    bool SupportsFeatureLevel(wgpu::FeatureLevel featureLevel) const override;
     ResultOrError<PhysicalDeviceSurfaceCapabilities> GetSurfaceCapabilities(
         InstanceBase* instance,
         const Surface* surface) const override;

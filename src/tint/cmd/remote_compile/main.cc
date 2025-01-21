@@ -41,7 +41,9 @@
 #endif
 
 #include "src/tint/utils/macros/compiler.h"
-#include "src/tint/utils/socket/socket.h"
+#include "src/tint/utils/socket.h"
+
+TINT_BEGIN_DISABLE_WARNING(UNSAFE_BUFFER_USAGE);
 
 namespace {
 
@@ -533,3 +535,5 @@ bool RunClient(std::string address,
     }
     return true;
 }
+
+TINT_END_DISABLE_WARNING(UNSAFE_BUFFER_USAGE);

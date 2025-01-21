@@ -173,6 +173,31 @@ uint32_t GPUSupportedLimits::getMaxComputeWorkgroupsPerDimension(Napi::Env) {
     return limits_.limits.maxComputeWorkgroupsPerDimension;
 }
 
+std::variant<uint32_t, interop::UndefinedType>
+GPUSupportedLimits::getMaxStorageBuffersInFragmentStage(Napi::Env) {
+    return std::variant<uint32_t, interop::UndefinedType>(
+        limits_.limits.maxStorageBuffersInFragmentStage);
+}
+
+std::variant<uint32_t, interop::UndefinedType>
+GPUSupportedLimits::getMaxStorageTexturesInFragmentStage(Napi::Env) {
+    return std::variant<uint32_t, interop::UndefinedType>(
+        limits_.limits.maxStorageTexturesInFragmentStage);
+}
+
+std::variant<uint32_t, interop::UndefinedType>
+GPUSupportedLimits::getMaxStorageBuffersInVertexStage(Napi::Env) {
+    return std::variant<uint32_t, interop::UndefinedType>(
+        limits_.limits.maxStorageBuffersInVertexStage);
+}
+
+std::variant<uint32_t, interop::UndefinedType>
+GPUSupportedLimits::getMaxStorageTexturesInVertexStage(Napi::Env) {
+    return std::variant<uint32_t, interop::UndefinedType>(
+        limits_.limits.maxStorageTexturesInVertexStage);
+}
+
+// TODO(crbug.com/354751907) Move to GPUAdapterInfo
 std::variant<uint32_t, interop::UndefinedType> GPUSupportedLimits::getMinSubgroupSize(Napi::Env) {
     if (subgroup_limits_.has_value()) {
         return subgroup_limits_->minSubgroupSize;
@@ -180,6 +205,7 @@ std::variant<uint32_t, interop::UndefinedType> GPUSupportedLimits::getMinSubgrou
     return interop::Undefined;
 }
 
+// TODO(crbug.com/354751907) Move to GPUAdapterInfo
 std::variant<uint32_t, interop::UndefinedType> GPUSupportedLimits::getMaxSubgroupSize(Napi::Env) {
     if (subgroup_limits_.has_value()) {
         return subgroup_limits_->maxSubgroupSize;

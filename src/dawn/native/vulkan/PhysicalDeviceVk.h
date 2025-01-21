@@ -50,7 +50,7 @@ class PhysicalDevice : public PhysicalDeviceBase {
 
     // PhysicalDeviceBase Implementation
     bool SupportsExternalImages() const override;
-    bool SupportsFeatureLevel(FeatureLevel featureLevel) const override;
+    bool SupportsFeatureLevel(wgpu::FeatureLevel featureLevel) const override;
 
     const VulkanDeviceInfo& GetDeviceInfo() const;
     VkPhysicalDevice GetVkPhysicalDevice() const;
@@ -96,7 +96,7 @@ class PhysicalDevice : public PhysicalDeviceBase {
     void PopulateBackendProperties(UnpackedPtr<AdapterInfo>& info) const override;
     void PopulateBackendFormatCapabilities(
         wgpu::TextureFormat format,
-        UnpackedPtr<FormatCapabilities>& capabilities) const override;
+        UnpackedPtr<DawnFormatCapabilities>& capabilities) const override;
 
     VkPhysicalDevice mVkPhysicalDevice;
     Ref<VulkanInstance> mVulkanInstance;

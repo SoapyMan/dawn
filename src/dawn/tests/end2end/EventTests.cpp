@@ -29,6 +29,7 @@
 #include <webgpu/webgpu.h>
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <utility>
 #include <vector>
@@ -45,10 +46,10 @@ using testing::Eq;
 wgpu::Device CreateExtraDevice(wgpu::Instance instance) {
     // IMPORTANT: DawnTest overrides RequestAdapter and RequestDevice and mixes
     // up the two instances. We use these to bypass the override.
-    auto* requestAdapter = reinterpret_cast<WGPUProcInstanceRequestAdapter2>(
-        wgpu::GetProcAddress("wgpuInstanceRequestAdapter2"));
-    auto* requestDevice = reinterpret_cast<WGPUProcAdapterRequestDevice2>(
-        wgpu::GetProcAddress("wgpuAdapterRequestDevice2"));
+    auto* requestAdapter = reinterpret_cast<WGPUProcInstanceRequestAdapter>(
+        wgpu::GetProcAddress("wgpuInstanceRequestAdapter"));
+    auto* requestDevice = reinterpret_cast<WGPUProcAdapterRequestDevice>(
+        wgpu::GetProcAddress("wgpuAdapterRequestDevice"));
 
     wgpu::Adapter adapter2;
     requestAdapter(instance.Get(), nullptr,

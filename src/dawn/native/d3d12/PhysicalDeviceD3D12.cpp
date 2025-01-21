@@ -57,7 +57,7 @@ bool PhysicalDevice::SupportsExternalImages() const {
     return true;
 }
 
-bool PhysicalDevice::SupportsFeatureLevel(FeatureLevel) const {
+bool PhysicalDevice::SupportsFeatureLevel(wgpu::FeatureLevel) const {
     return true;
 }
 
@@ -148,6 +148,7 @@ void PhysicalDevice::InitializeSupportedFeaturesImpl() {
     EnableFeature(Feature::StaticSamplers);
     EnableFeature(Feature::MultiDrawIndirect);
     EnableFeature(Feature::ClipDistances);
+    EnableFeature(Feature::FlexibleTextureViews);
 
     if (AreTimestampQueriesSupported()) {
         EnableFeature(Feature::TimestampQuery);
@@ -163,12 +164,11 @@ void PhysicalDevice::InitializeSupportedFeaturesImpl() {
         shaderF16Enabled = true;
     }
 
-    // ChromiumExperimentalSubgroups requires SM >= 6.0 and capabilities flags.
+    // Subgroups feature requires SM >= 6.0 and capabilities flags.
     if (GetBackend()->IsDXCAvailable() && mDeviceInfo.supportsWaveOps) {
-        // TODO(349125474): Remove deprecated ChromiumExperimentalSubgroups.
-        EnableFeature(Feature::ChromiumExperimentalSubgroups);
         EnableFeature(Feature::Subgroups);
         // D3D12 devices that support both native f16 and wave ops can support subgroups-f16.
+        // TODO(crbug.com/380244620): Remove when 'subgroups_f16' has been fully deprecated.
         if (shaderF16Enabled) {
             EnableFeature(Feature::SubgroupsF16);
         }
@@ -280,6 +280,10 @@ MaybeError PhysicalDevice::InitializeSupportedLimitsImpl(CombinedLimits* limits)
     // Allocate half of the UAVs to storage buffers, and half to storage textures.
     limits->v1.maxStorageTexturesPerShaderStage = maxUAVsPerStage / 2;
     limits->v1.maxStorageBuffersPerShaderStage = maxUAVsPerStage - maxUAVsPerStage / 2;
+    limits->v1.maxStorageTexturesInFragmentStage = limits->v1.maxStorageTexturesPerShaderStage;
+    limits->v1.maxStorageBuffersInFragmentStage = limits->v1.maxStorageBuffersPerShaderStage;
+    limits->v1.maxStorageTexturesInVertexStage = limits->v1.maxStorageTexturesPerShaderStage;
+    limits->v1.maxStorageBuffersInVertexStage = limits->v1.maxStorageBuffersPerShaderStage;
     limits->v1.maxSampledTexturesPerShaderStage = maxSRVsPerStage;
     limits->v1.maxSamplersPerShaderStage = maxSamplersPerStage;
 
@@ -369,6 +373,7 @@ MaybeError PhysicalDevice::InitializeSupportedLimitsImpl(CombinedLimits* limits)
     // - maxVertexBufferArrayStride
 
     // Experimental limits for subgroups
+    // TODO(crbug.com/354751907) Move this to AdapterInfo
     limits->experimentalSubgroupLimits.minSubgroupSize = mDeviceInfo.waveLaneCountMin;
     // Currently the WaveLaneCountMax queried from D3D12 API is not reliable and the meaning is
     // unclear. Use 128 instead, which is the largest possible size. Reference:
@@ -399,8 +404,6 @@ FeatureValidationResult PhysicalDevice::ValidateFeatureSupportedWithTogglesImpl(
             case wgpu::FeatureName::ShaderF16:
             case wgpu::FeatureName::Subgroups:
             case wgpu::FeatureName::SubgroupsF16:
-            // TODO(349125474): Remove deprecated ChromiumExperimentalSubgroups.
-            case wgpu::FeatureName::ChromiumExperimentalSubgroups:
                 return FeatureValidationResult(
                     absl::StrFormat("Feature %s requires DXC for D3D12.", feature));
             default:
@@ -470,14 +473,14 @@ MaybeError PhysicalDevice::InitializeDebugLayerFilters() {
         // Temporary IDs: list of warnings that should be fixed or promoted
         //
 
-        // Remove after warning have been addressed
-        // https://crbug.com/dawn/421
-        D3D12_MESSAGE_ID_GPU_BASED_VALIDATION_INCOMPATIBLE_RESOURCE_STATE,
-
         // For small placed resource alignment, we first request the small alignment, which may
         // get rejected and generate a debug error. Then, we request 0 to get the allowed
         // allowed alignment.
         D3D12_MESSAGE_ID_CREATERESOURCE_INVALIDALIGNMENT,
+#if D3D12_SDK_VERSION >= 612
+        // This message id for small resource alignment was introduced in SDK 10.0.26100.0.
+        D3D12_MESSAGE_ID_CREATERESOURCE_INVALIDALIGNMENT_SMALLRESOURCE,
+#endif
 
         // WebGPU allows OOB vertex buffer access and relies on D3D12's robust buffer access
         // behavior.
@@ -586,6 +589,12 @@ void PhysicalDevice::SetupBackendAdapterToggles(dawn::platform::Platform* platfo
     if (gpu_info::IsIntelGen11(vendorId, deviceId)) {
         adapterToggles->ForceSet(Toggle::D3D12DontUseShaderModel66OrHigher, true);
     }
+
+    // On Intel Gen12LP fragment shader is possible to run with wave lane count of 8
+    // while driver reporting WaveLaneCountMin being 16.
+    if (gpu_info::IsIntelGen12LP(vendorId, deviceId)) {
+        adapterToggles->Default(Toggle::D3D12RelaxMinSubgroupSizeTo8, true);
+    }
 }
 
 void PhysicalDevice::SetupBackendDeviceToggles(dawn::platform::Platform* platform,
@@ -641,6 +650,14 @@ void PhysicalDevice::SetupBackendDeviceToggles(dawn::platform::Platform* platfor
     deviceToggles->Default(Toggle::D3D12CreateNotZeroedHeap,
                            GetDeviceInfo().supportsHeapFlagCreateNotZeroed);
 
+    // By default allow relaxed row pitch and offset in buffer-texture copies when possible,
+    // otherwise we should never enable this toggle.
+    if (!GetDeviceInfo().supportsUnrestrictedBufferTextureCopyPitch) {
+        deviceToggles->ForceSet(Toggle::D3D12RelaxBufferTextureCopyPitchAndOffsetAlignment, false);
+    }
+    deviceToggles->Default(Toggle::D3D12RelaxBufferTextureCopyPitchAndOffsetAlignment,
+                           GetDeviceInfo().supportsUnrestrictedBufferTextureCopyPitch);
+
     // Native support of packed 4x8 integer dot product required shader model 6.4 or higher, and
     // DXC 1.4 or higher.
     if (!(GetAppliedShaderModelUnderToggles(*deviceToggles) >= 64) ||
@@ -672,26 +689,21 @@ void PhysicalDevice::SetupBackendDeviceToggles(dawn::platform::Platform* platfor
         }
     }
 
-    // Currently this workaround is only needed on Intel Gen9, Gen9.5 and Gen12 GPUs.
+    // Currently this workaround is only needed on Intel Gen9, Gen9.5, Gen12 and Xe GPUs.
     // See http://crbug.com/dawn/1487 for more information.
     if (gpu_info::IsIntelGen9(vendorId, deviceId) || gpu_info::IsIntelGen12LP(vendorId, deviceId) ||
-        gpu_info::IsIntelGen12HP(vendorId, deviceId)) {
+        gpu_info::IsIntelGen12HP(vendorId, deviceId) ||
+        gpu_info::IsIntelXeLPG(vendorId, deviceId)) {
         deviceToggles->Default(Toggle::D3D12ForceClearCopyableDepthStencilTextureOnCreation, true);
     }
 
-    // Currently this workaround is only needed on Intel Gen12 GPUs.
+    // Currently this workaround is only needed on Intel Gen12 and Xe GPUs.
     // See http://crbug.com/dawn/1487 for more information.
     if (gpu_info::IsIntelGen12LP(vendorId, deviceId) ||
-        gpu_info::IsIntelGen12HP(vendorId, deviceId)) {
+        gpu_info::IsIntelGen12HP(vendorId, deviceId) ||
+        gpu_info::IsIntelXeLPG(vendorId, deviceId)) {
         deviceToggles->Default(Toggle::D3D12DontSetClearValueOnDepthTextureCreation, true);
     }
-
-    // Currently this workaround is needed on any D3D12 backend for some particular situations.
-    // But we may need to limit it if D3D12 runtime fixes the bug on its new release. See
-    // https://crbug.com/dawn/1289 for more information.
-    // TODO(dawn:1289): Unset this toggle when we skip the split on the buffer-texture copy
-    // on the platforms where UnrestrictedBufferTextureCopyPitchSupported is true.
-    deviceToggles->Default(Toggle::D3D12SplitBufferTextureCopyForRowsPerImagePaddings, true);
 
     // This workaround is only needed on Intel Gen12LP with driver prior to 30.0.101.1692.
     // See http://crbug.com/dawn/949 for more information.
@@ -732,7 +744,8 @@ void PhysicalDevice::SetupBackendDeviceToggles(dawn::platform::Platform* platfor
 
     // B2T copy failed with stencil8 format on Intel ACM/MTL/ARL GPUs. See
     // https://issues.chromium.org/issues/368085621 for more information.
-    if (gpu_info::IsAlchemist(deviceId) || gpu_info::IsMeteorlakeOrArrowlake(deviceId)) {
+    if (gpu_info::IsIntelGen12HP(vendorId, deviceId) ||
+        gpu_info::IsIntelXeLPG(vendorId, deviceId)) {
         deviceToggles->Default(Toggle::UseBlitForBufferToStencilTextureCopy, true);
     }
 
@@ -829,6 +842,13 @@ MaybeError PhysicalDevice::ResetInternalDeviceForTestingImpl() {
 }
 
 void PhysicalDevice::PopulateBackendProperties(UnpackedPtr<AdapterInfo>& info) const {
+    if (auto* subgroupProperties = info.Get<AdapterPropertiesSubgroups>()) {
+        subgroupProperties->subgroupMinSize = mDeviceInfo.waveLaneCountMin;
+        // Currently the WaveLaneCountMax queried from D3D12 API is not reliable and the meaning is
+        // unclear. Use 128 instead, which is the largest possible size. Reference:
+        // https://github.com/Microsoft/DirectXShaderCompiler/wiki/Wave-Intrinsics#:~:text=UINT%20WaveLaneCountMax
+        subgroupProperties->subgroupMaxSize = 128u;
+    }
     if (auto* memoryHeapProperties = info.Get<AdapterPropertiesMemoryHeaps>()) {
         // https://microsoft.github.io/DirectX-Specs/d3d/D3D12GPUUploadHeaps.html describes
         // the properties of D3D12 Default/Upload/Readback heaps.

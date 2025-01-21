@@ -54,7 +54,6 @@ VkVertexInputRate VulkanInputRate(wgpu::VertexStepMode stepMode) {
             return VK_VERTEX_INPUT_RATE_VERTEX;
         case wgpu::VertexStepMode::Instance:
             return VK_VERTEX_INPUT_RATE_INSTANCE;
-        case wgpu::VertexStepMode::VertexBufferNotUsed:
         case wgpu::VertexStepMode::Undefined:
             break;
     }
@@ -367,8 +366,7 @@ MaybeError RenderPipeline::InitializeImpl() {
         ShaderModule::ModuleAndSpirv moduleAndSpirv;
         DAWN_TRY_ASSIGN(moduleAndSpirv, ToBackend(programmableStage.module)
                                             ->GetHandleAndSpirv(stage, programmableStage, layout,
-                                                                clampFragDepth, emitPointSize,
-                                                                /* fullSubgroups */ {}));
+                                                                clampFragDepth, emitPointSize));
         mHasInputAttachment = mHasInputAttachment || moduleAndSpirv.hasInputAttachment;
         // Record cache key for each shader since it will become inaccessible later on.
         StreamIn(&mCacheKey, stream::Iterable(moduleAndSpirv.spirv, moduleAndSpirv.wordCount));
@@ -380,7 +378,7 @@ MaybeError RenderPipeline::InitializeImpl() {
         shaderStage->flags = 0;
         shaderStage->pSpecializationInfo = nullptr;
         shaderStage->stage = vkStage;
-        shaderStageEntryPoints[stageCount] = moduleAndSpirv.remappedEntryPoint;
+        shaderStageEntryPoints[stageCount] = kRemappedEntryPointName;
         shaderStage->pName = shaderStageEntryPoints[stageCount].c_str();
 
         stageCount++;

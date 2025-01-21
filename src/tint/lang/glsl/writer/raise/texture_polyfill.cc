@@ -41,6 +41,7 @@
 #include "src/tint/lang/core/type/sampled_texture.h"
 #include "src/tint/lang/core/type/storage_texture.h"
 #include "src/tint/lang/glsl/ir/builtin_call.h"
+#include "src/tint/lang/glsl/ir/combined_texture_sampler_var.h"
 #include "src/tint/lang/glsl/ir/member_builtin_call.h"
 
 namespace tint::glsl::writer::raise {
@@ -269,32 +270,29 @@ struct State {
                            core::ir::Var* tex,
                            core::ir::Var* sampler,
                            const core::type::Pointer* tex_ty) {
-        std::string name;
-        auto it = (cfg.sampler_texture_to_name.find(key));
-        if (it != cfg.sampler_texture_to_name.end()) {
-            name = it->second;
-        } else {
-            name = ir.NameOf(tex).Name();
-            if (name.empty()) {
-                name = "t";
-            }
+        // Create a combined texture sampler variable and insert it into the root block.
+        auto* result = b.InstructionResult(tex_ty);
+        auto* var = ir.CreateInstruction<glsl::ir::CombinedTextureSamplerVar>(result, key.texture,
+                                                                              key.sampler);
+        ir.root_block->Append(var);
 
-            if (sampler) {
-                auto sampler_name = ir.NameOf(sampler).Name();
-                if (sampler_name.empty()) {
-                    sampler_name = "s";
-                }
-                name += "_" + sampler_name;
-            }
-            if (name.empty()) {
-                name = "v";
+        // Set the variable name based on the original texture and sampler names if provided.
+        StringStream name;
+        if (auto texture_name = ir.NameOf(tex)) {
+            name << texture_name.NameView();
+        } else {
+            name << "t";
+        }
+        if (sampler) {
+            name << "_";
+            if (auto sampler_name = ir.NameOf(sampler)) {
+                name << sampler_name.NameView();
+            } else {
+                name << "s";
             }
         }
+        ir.SetName(var, name.str());
 
-        core::ir::Var* var = nullptr;
-        // We may already be inside an insert block, so make a new insert block instead of
-        // appending directly to the root block.
-        b.Append(ir.root_block, [&] { var = b.Var(name, tex_ty); });
         return var;
     }
 
@@ -1173,6 +1171,8 @@ struct State {
             params.Push(tex);
 
             core::ir::Value* coords = args[idx++];
+            bool is_array = false;
+            bool is_depth = tex_type->Is<core::type::DepthTexture>();
             switch (tex_type->Dim()) {
                 case core::type::TextureDimension::k2d:
                     coords = b.Construct(ty.vec3<f32>(), coords, args[idx++])->Result(0);
@@ -1180,6 +1180,8 @@ struct State {
 
                     break;
                 case core::type::TextureDimension::k2dArray: {
+                    is_array = true;
+
                     Vector<core::ir::Value*, 3> new_coords;
                     new_coords.Push(coords);
                     new_coords.Push(b.Convert<f32>(args[idx++])->Result(0));
@@ -1193,6 +1195,8 @@ struct State {
                     params.Push(coords);
                     break;
                 case core::type::TextureDimension::kCubeArray:
+                    is_array = true;
+
                     params.Push(b.Construct(ty.vec4<f32>(), coords, b.Convert<f32>(args[idx++]))
                                     ->Result(0));
 
@@ -1204,7 +1208,17 @@ struct State {
 
             auto fn = glsl::BuiltinFn::kTexture;
             if (idx < args.Length()) {
-                fn = glsl::BuiltinFn::kTextureOffset;
+                // In GLSL ES `textureOffset` does not support depth 2d array textures. In order to
+                // support this texture we polyfill with a `textureGradOffset` and pass zero for
+                // the `dPdx` and `dPdy` values.
+                if (is_depth && is_array) {
+                    fn = glsl::BuiltinFn::kTextureGradOffset;
+
+                    params.Push(b.Zero(ty.vec2<f32>()));
+                    params.Push(b.Zero(ty.vec2<f32>()));
+                } else {
+                    fn = glsl::BuiltinFn::kTextureOffset;
+                }
                 params.Push(args[idx++]);
             }
 

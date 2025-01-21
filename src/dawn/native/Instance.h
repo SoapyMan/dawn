@@ -75,13 +75,8 @@ class InstanceBase final : public ErrorSink, public RefCountedWithExternalCount<
   public:
     static ResultOrError<Ref<InstanceBase>> Create(const InstanceDescriptor* descriptor = nullptr);
 
-    void APIRequestAdapter(const RequestAdapterOptions* options,
-                           WGPURequestAdapterCallback callback,
-                           void* userdata);
-    Future APIRequestAdapterF(const RequestAdapterOptions* options,
-                              const RequestAdapterCallbackInfo& callbackInfo);
-    Future APIRequestAdapter2(const RequestAdapterOptions* options,
-                              const WGPURequestAdapterCallbackInfo2& callbackInfo);
+    Future APIRequestAdapter(const RequestAdapterOptions* options,
+                             const WGPURequestAdapterCallbackInfo& callbackInfo);
 
     // Discovers and returns a vector of adapters.
     // All systems adapters that can be found are returned if no options are passed.
@@ -182,7 +177,7 @@ class InstanceBase final : public ErrorSink, public RefCountedWithExternalCount<
     // Helper function that create adapter on given physical device handling required adapter
     // toggles descriptor.
     Ref<AdapterBase> CreateAdapter(Ref<PhysicalDeviceBase> physicalDevice,
-                                   FeatureLevel featureLevel,
+                                   wgpu::FeatureLevel featureLevel,
                                    const DawnTogglesDescriptor* requiredAdapterToggles,
                                    wgpu::PowerPreference powerPreference);
 

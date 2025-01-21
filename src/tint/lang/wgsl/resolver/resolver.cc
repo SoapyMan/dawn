@@ -105,10 +105,10 @@
 #include "src/tint/lang/wgsl/sem/value_conversion.h"
 #include "src/tint/lang/wgsl/sem/variable.h"
 #include "src/tint/lang/wgsl/sem/while_statement.h"
-#include "src/tint/utils/constants/internal_limits.h"
 #include "src/tint/utils/containers/reverse.h"
 #include "src/tint/utils/containers/transform.h"
 #include "src/tint/utils/containers/vector.h"
+#include "src/tint/utils/internal_limits.h"
 #include "src/tint/utils/macros/compiler.h"
 #include "src/tint/utils/macros/defer.h"
 #include "src/tint/utils/macros/scoped_assignment.h"
@@ -2488,6 +2488,14 @@ sem::Call* Resolver::BuiltinCall(const ast::CallExpression* expr,
 
         case wgsl::BuiltinFn::kSubgroupBroadcast:
             if (!validator_.SubgroupBroadcast(call)) {
+                return nullptr;
+            }
+            break;
+        case wgsl::BuiltinFn::kSubgroupShuffle:
+        case wgsl::BuiltinFn::kSubgroupShuffleUp:
+        case wgsl::BuiltinFn::kSubgroupShuffleDown:
+        case wgsl::BuiltinFn::kSubgroupShuffleXor:
+            if (!validator_.SubgroupShuffleFunction(fn, call)) {
                 return nullptr;
             }
             break;

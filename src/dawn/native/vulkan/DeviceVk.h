@@ -39,7 +39,7 @@
 #include "dawn/native/Commands.h"
 #include "dawn/native/Device.h"
 #include "dawn/native/dawn_platform.h"
-#include "dawn/native/vulkan/CommandRecordingContext.h"
+#include "dawn/native/vulkan/CommandRecordingContextVk.h"
 #include "dawn/native/vulkan/DescriptorSetAllocator.h"
 #include "dawn/native/vulkan/Forward.h"
 #include "dawn/native/vulkan/VulkanFunctions.h"
@@ -187,7 +187,8 @@ class Device final : public DeviceBase {
     VkDevice mVkDevice = VK_NULL_HANDLE;
     uint32_t mMainQueueFamily = 0;
 
-    SerialQueue<ExecutionSerial, Ref<DescriptorSetAllocator>>
+    // Entries can be appended without holding the device mutex.
+    MutexProtected<SerialQueue<ExecutionSerial, Ref<DescriptorSetAllocator>>>
         mDescriptorAllocatorsPendingDeallocation;
     std::unique_ptr<MutexProtected<FencedDeleter>> mDeleter;
     std::unique_ptr<MutexProtected<ResourceMemoryAllocator>> mResourceMemoryAllocator;

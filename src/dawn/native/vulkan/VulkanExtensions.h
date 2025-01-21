@@ -112,6 +112,7 @@ enum class DeviceExt {
     // Promoted to 1.3
     ShaderIntegerDotProduct,
     ZeroInitializeWorkgroupMemory,
+    DemoteToHelperInvocation,
     Maintenance4,
     SubgroupSizeControl,
 
@@ -121,7 +122,6 @@ enum class DeviceExt {
     Swapchain,
     QueueFamilyForeign,
     Robustness2,
-    ShaderSubgroupUniformControlFlow,
     DisplayTiming,
 
     // External* extensions

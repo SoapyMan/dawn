@@ -213,6 +213,7 @@ MaybeError PhysicalDevice::InitializeImpl() {
 void PhysicalDevice::InitializeSupportedFeaturesImpl() {
     EnableFeature(Feature::AdapterPropertiesMemoryHeaps);
     EnableFeature(Feature::StaticSamplers);
+    EnableFeature(Feature::FlexibleTextureViews);
 
     // Initialize supported extensions
     if (mDeviceInfo.features.textureCompressionBC == VK_TRUE) {
@@ -386,26 +387,6 @@ void PhysicalDevice::InitializeSupportedFeaturesImpl() {
     EnableFeature(Feature::AdapterPropertiesVk);
     EnableFeature(Feature::DawnLoadResolveTexture);
 
-    // TODO(349125474): Remove deprecated ChromiumExperimentalSubgroups.
-    // Enable ChromiumExperimentalSubgroups feature if:
-    // 1. Vulkan API version is 1.1 or later, and
-    // 2. subgroupSupportedStages includes compute stage bit, and
-    // 3. subgroupSupportedOperations includes basic and ballot bits, and
-    // 4. VK_EXT_subgroup_size_control extension is valid, and both subgroupSizeControl
-    //    and computeFullSubgroups is TRUE in VkPhysicalDeviceSubgroupSizeControlFeaturesEXT.
-    // Notes that these requirement doesn't ensure all subgroups features are supported by the
-    // Vulkan backend. For example, currently ChromiumExperimentalSubgroups feature allows using
-    // subgroups functions with f16 types in WGSL, but doesn't ensure that backend supports it.
-    if ((mDeviceInfo.properties.apiVersion >= VK_API_VERSION_1_1) &&
-        (mDeviceInfo.subgroupProperties.supportedStages & VK_SHADER_STAGE_COMPUTE_BIT) &&
-        (mDeviceInfo.subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_BASIC_BIT) &&
-        (mDeviceInfo.subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_BALLOT_BIT) &&
-        (mDeviceInfo.HasExt(DeviceExt::SubgroupSizeControl)) &&
-        (mDeviceInfo.subgroupSizeControlFeatures.subgroupSizeControl == VK_TRUE) &&
-        (mDeviceInfo.subgroupSizeControlFeatures.computeFullSubgroups == VK_TRUE)) {
-        EnableFeature(Feature::ChromiumExperimentalSubgroups);
-    }
-
     // Enable Subgroups feature if:
     // 1. Vulkan API version is 1.1 or later, and
     // 2. subgroupSupportedStages includes compute and fragment stage bit, and
@@ -426,23 +407,25 @@ void PhysicalDevice::InitializeSupportedFeaturesImpl() {
         (mDeviceInfo.HasExt(DeviceExt::SubgroupSizeControl)) &&
         (mDeviceInfo.subgroupSizeControlFeatures.subgroupSizeControl == VK_TRUE) &&
         (mDeviceInfo.subgroupSizeControlFeatures.computeFullSubgroups == VK_TRUE)) {
-        EnableFeature(Feature::Subgroups);
-        // Enable SubgroupsF16 feature if:
-        // 1. Subgroups feature is enabled, and
-        // 2. ShaderF16 feature is enabled, and
-        // 3. shaderSubgroupExtendedTypes is TRUE in
-        //    VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR.
-        if (shaderF16Enabled &&
-            mDeviceInfo.shaderSubgroupExtendedTypes.shaderSubgroupExtendedTypes == VK_TRUE) {
-            EnableFeature(Feature::SubgroupsF16);
+        if (shaderF16Enabled) {
+            if (mDeviceInfo.shaderSubgroupExtendedTypes.shaderSubgroupExtendedTypes == VK_TRUE) {
+                // Enable SubgroupsF16 feature if:
+                // 1. Subgroups feature is enabled, and
+                // 2. ShaderF16 feature is enabled, and
+                // 3. shaderSubgroupExtendedTypes is TRUE in
+                //    VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR.
+                // TODO(crbug.com/380244620): Remove when 'subgroups_f16' has been fully deprecated.
+                EnableFeature(Feature::SubgroupsF16);
+                // If shader f16 is enable we only enable subgroups if we extended subgroup support.
+                // This means there is a vary narrow number of devices (~4%) will not get subgroup
+                // support due to the fact that they support shader f16 but not actually f16
+                // operations in subgroups.
+                EnableFeature(Feature::Subgroups);
+            }
+        } else {
+            // Subgroups without extended type support (f16).
+            EnableFeature(Feature::Subgroups);
         }
-    }
-    // Enable ChromiumExperimentalSubgroupUniformControlFlow if
-    // VK_KHR_shader_subgroup_uniform_control_flow is supported.
-    if (mDeviceInfo.HasExt(DeviceExt::ShaderSubgroupUniformControlFlow) &&
-        (mDeviceInfo.shaderSubgroupUniformControlFlowFeatures.shaderSubgroupUniformControlFlow ==
-         VK_TRUE)) {
-        EnableFeature(Feature::ChromiumExperimentalSubgroupUniformControlFlow);
     }
 
     if (mDeviceInfo.HasExt(DeviceExt::ExternalMemoryHost) &&
@@ -475,7 +458,6 @@ void PhysicalDevice::InitializeSupportedFeaturesImpl() {
     }
     if (CheckSemaphoreSupport(DeviceExt::ExternalSemaphoreFD,
                               VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT_KHR)) {
-        EnableFeature(Feature::SharedFenceVkSemaphoreSyncFD);
         EnableFeature(Feature::SharedFenceSyncFD);
     }
     if (CheckSemaphoreSupport(DeviceExt::ExternalSemaphoreFD,
@@ -484,7 +466,7 @@ void PhysicalDevice::InitializeSupportedFeaturesImpl() {
     }
 
     if (mDeviceInfo.HasExt(DeviceExt::ImageDrmFormatModifier)) {
-        EnableFeature(Feature::DrmFormatCapabilities);
+        EnableFeature(Feature::DawnDrmFormatCapabilities);
     }
 }
 
@@ -581,6 +563,10 @@ MaybeError PhysicalDevice::InitializeSupportedLimitsImpl(CombinedLimits* limits)
             std::min(baseLimits.v1.maxStorageBuffersPerShaderStage + extraResources,
                      vkLimits.maxPerStageDescriptorStorageBuffers);
     }
+    limits->v1.maxStorageTexturesInFragmentStage = limits->v1.maxStorageTexturesPerShaderStage;
+    limits->v1.maxStorageBuffersInFragmentStage = limits->v1.maxStorageBuffersPerShaderStage;
+    limits->v1.maxStorageTexturesInVertexStage = limits->v1.maxStorageTexturesPerShaderStage;
+    limits->v1.maxStorageBuffersInVertexStage = limits->v1.maxStorageBuffersPerShaderStage;
 
     CHECK_AND_SET_V1_MIN_LIMIT(minUniformBufferOffsetAlignment, minUniformBufferOffsetAlignment);
     CHECK_AND_SET_V1_MIN_LIMIT(minStorageBufferOffsetAlignment, minStorageBufferOffsetAlignment);
@@ -658,6 +644,7 @@ MaybeError PhysicalDevice::InitializeSupportedLimitsImpl(CombinedLimits* limits)
     }
 
     // Experimental limits for subgroups
+    // TODO(crbug.com/354751907) Move this to AdapterInfo
     limits->experimentalSubgroupLimits.minSubgroupSize =
         mDeviceInfo.subgroupSizeControlProperties.minSubgroupSize;
     limits->experimentalSubgroupLimits.maxSubgroupSize =
@@ -673,7 +660,7 @@ bool PhysicalDevice::SupportsExternalImages() const {
                                                      mVulkanInstance->GetFunctions());
 }
 
-bool PhysicalDevice::SupportsFeatureLevel(FeatureLevel) const {
+bool PhysicalDevice::SupportsFeatureLevel(wgpu::FeatureLevel) const {
     return true;
 }
 
@@ -780,6 +767,19 @@ void PhysicalDevice::SetupBackendDeviceToggles(dawn::platform::Platform* platfor
     // By default try to initialize workgroup memory with OpConstantNull according to the Vulkan
     // extension VK_KHR_zero_initialize_workgroup_memory.
     deviceToggles->Default(Toggle::VulkanUseZeroInitializeWorkgroupMemoryExtension, true);
+
+    // Spirv OpKill does not do demote to helper and has also been deprecated. Use
+    // OpDemoteToHelperInvocation where the extension is available to get correct platform demote to
+    // helper for "discard".
+    if (!GetDeviceInfo().HasExt(DeviceExt::DemoteToHelperInvocation) ||
+        GetDeviceInfo().demoteToHelperInvocationFeatures.shaderDemoteToHelperInvocation ==
+            VK_FALSE) {
+        deviceToggles->ForceSet(Toggle::VulkanUseDemoteToHelperInvocationExtension, false);
+    }
+
+    // By default we will use the vulkan demote to helper extension if it is available. This gives
+    // us correct fragment shader discard semantics.
+    deviceToggles->Default(Toggle::VulkanUseDemoteToHelperInvocationExtension, true);
 
     // The environment can only request to use StorageInputOutput16 when the capability is
     // available.
@@ -1041,6 +1041,13 @@ const AHBFunctions* PhysicalDevice::GetOrLoadAHBFunctions() {
 }
 
 void PhysicalDevice::PopulateBackendProperties(UnpackedPtr<AdapterInfo>& info) const {
+    if (auto* subgroupProperties = info.Get<AdapterPropertiesSubgroups>()) {
+        // Subgroups are supported only if subgroup size control is supported.
+        subgroupProperties->subgroupMinSize =
+            mDeviceInfo.subgroupSizeControlProperties.minSubgroupSize;
+        subgroupProperties->subgroupMaxSize =
+            mDeviceInfo.subgroupSizeControlProperties.maxSubgroupSize;
+    }
     if (auto* memoryHeapProperties = info.Get<AdapterPropertiesMemoryHeaps>()) {
         size_t count = mDeviceInfo.memoryHeaps.size();
         auto* heapInfo = new MemoryHeapInfo[count];
@@ -1075,8 +1082,8 @@ void PhysicalDevice::PopulateBackendProperties(UnpackedPtr<AdapterInfo>& info) c
 
 void PhysicalDevice::PopulateBackendFormatCapabilities(
     wgpu::TextureFormat format,
-    UnpackedPtr<FormatCapabilities>& capabilities) const {
-    if (auto* drmCapabilities = capabilities.Get<DrmFormatCapabilities>()) {
+    UnpackedPtr<DawnFormatCapabilities>& capabilities) const {
+    if (auto* drmCapabilities = capabilities.Get<DawnDrmFormatCapabilities>()) {
         auto vk_format = ColorVulkanImageFormat(format);
         if (vk_format == VK_FORMAT_UNDEFINED) {
             drmCapabilities->properties = nullptr;
@@ -1086,7 +1093,7 @@ void PhysicalDevice::PopulateBackendFormatCapabilities(
             GetFormatModifierProps(mVulkanInstance->GetFunctions(), mVkPhysicalDevice, vk_format);
         if (!drmFormatModifiers.empty()) {
             size_t count = drmFormatModifiers.size();
-            auto* properties = new DrmFormatProperties[count];
+            auto* properties = new DawnDrmFormatProperties[count];
             drmCapabilities->properties = properties;
             drmCapabilities->propertiesCount = count;
 

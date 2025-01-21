@@ -771,8 +771,7 @@ bool Converter::Convert(wgpu::TextureViewDimension& out,
     return Throw("invalid value for GPUTextureViewDimension");
 }
 
-bool Converter::Convert(wgpu::ProgrammableStageDescriptor& out,
-                        const interop::GPUProgrammableStage& in) {
+bool Converter::Convert(wgpu::ComputeState& out, const interop::GPUProgrammableStage& in) {
     out = {};
     out.module = *in.module.As<GPUShaderModule>();
 
@@ -1101,13 +1100,13 @@ bool Converter::Convert(wgpu::VertexState& out, const interop::GPUVertexState& i
         return false;
     }
 
-    // Patch up the unused vertex buffer layouts to use wgpu::VertexStepMode::VertexBufferNotUsed.
+    // Patch up the unused vertex buffer layouts to use wgpu::VertexStepMode::Undefined.
     // The converter for optional value will have put the default value of wgpu::VertexBufferLayout
     // that has wgpu::VertexStepMode::Vertex.
     out.buffers = outBuffers;
     for (size_t i = 0; i < in.buffers.size(); i++) {
         if (!in.buffers[i].has_value()) {
-            outBuffers[i].stepMode = wgpu::VertexStepMode::VertexBufferNotUsed;
+            outBuffers[i].stepMode = wgpu::VertexStepMode::Undefined;
         }
     }
 
@@ -1389,7 +1388,7 @@ bool Converter::Convert(wgpu::StorageTextureBindingLayout& out,
 }
 
 bool Converter::Convert(wgpu::BufferBindingType& out, const interop::GPUBufferBindingType& in) {
-    out = wgpu::BufferBindingType::Undefined;
+    out = wgpu::BufferBindingType::BindingNotUsed;
     switch (in) {
         case interop::GPUBufferBindingType::kUniform:
             out = wgpu::BufferBindingType::Uniform;
@@ -1405,7 +1404,7 @@ bool Converter::Convert(wgpu::BufferBindingType& out, const interop::GPUBufferBi
 }
 
 bool Converter::Convert(wgpu::TextureSampleType& out, const interop::GPUTextureSampleType& in) {
-    out = wgpu::TextureSampleType::Undefined;
+    out = wgpu::TextureSampleType::BindingNotUsed;
     switch (in) {
         case interop::GPUTextureSampleType::kFloat:
             out = wgpu::TextureSampleType::Float;
@@ -1427,7 +1426,7 @@ bool Converter::Convert(wgpu::TextureSampleType& out, const interop::GPUTextureS
 }
 
 bool Converter::Convert(wgpu::SamplerBindingType& out, const interop::GPUSamplerBindingType& in) {
-    out = wgpu::SamplerBindingType::Undefined;
+    out = wgpu::SamplerBindingType::BindingNotUsed;
     switch (in) {
         case interop::GPUSamplerBindingType::kFiltering:
             out = wgpu::SamplerBindingType::Filtering;
@@ -1444,7 +1443,7 @@ bool Converter::Convert(wgpu::SamplerBindingType& out, const interop::GPUSampler
 
 bool Converter::Convert(wgpu::StorageTextureAccess& out,
                         const interop::GPUStorageTextureAccess& in) {
-    out = wgpu::StorageTextureAccess::Undefined;
+    out = wgpu::StorageTextureAccess::BindingNotUsed;
     switch (in) {
         case interop::GPUStorageTextureAccess::kWriteOnly:
             out = wgpu::StorageTextureAccess::WriteOnly;
@@ -1526,12 +1525,6 @@ bool Converter::Convert(wgpu::FeatureName& out, interop::GPUFeatureName in) {
         case interop::GPUFeatureName::kDualSourceBlending:
             out = wgpu::FeatureName::DualSourceBlending;
             return true;
-        case interop::GPUFeatureName::kChromiumExperimentalSubgroups:
-            out = wgpu::FeatureName::ChromiumExperimentalSubgroups;
-            return true;
-        case interop::GPUFeatureName::kChromiumExperimentalSubgroupUniformControlFlow:
-            out = wgpu::FeatureName::ChromiumExperimentalSubgroupUniformControlFlow;
-            return true;
         case interop::GPUFeatureName::kChromiumExperimentalImmediateData:
             out = wgpu::FeatureName::ChromiumExperimentalImmediateData;
             return true;
@@ -1553,9 +1546,6 @@ bool Converter::Convert(interop::GPUFeatureName& out, wgpu::FeatureName in) {
 
     switch (in) {
         CASE(BGRA8UnormStorage, kBgra8UnormStorage);
-        CASE(ChromiumExperimentalSubgroups, kChromiumExperimentalSubgroups);
-        CASE(ChromiumExperimentalSubgroupUniformControlFlow,
-             kChromiumExperimentalSubgroupUniformControlFlow);
         CASE(Depth32FloatStencil8, kDepth32FloatStencil8);
         CASE(DepthClipControl, kDepthClipControl);
         CASE(Float32Filterable, kFloat32Filterable);
@@ -1586,8 +1576,8 @@ bool Converter::Convert(interop::GPUFeatureName& out, wgpu::FeatureName in) {
         case wgpu::FeatureName::DawnInternalUsages:
         case wgpu::FeatureName::DawnMultiPlanarFormats:
         case wgpu::FeatureName::DawnNative:
-        case wgpu::FeatureName::DrmFormatCapabilities:
-        case wgpu::FeatureName::FormatCapabilities:
+        case wgpu::FeatureName::DawnDrmFormatCapabilities:
+        case wgpu::FeatureName::DawnFormatCapabilities:
         case wgpu::FeatureName::FramebufferFetch:
         case wgpu::FeatureName::HostMappedPointer:
         case wgpu::FeatureName::ImplicitDeviceSynchronization:
@@ -1612,7 +1602,6 @@ bool Converter::Convert(interop::GPUFeatureName& out, wgpu::FeatureName in) {
         case wgpu::FeatureName::SharedFenceMTLSharedEvent:
         case wgpu::FeatureName::SharedFenceVkSemaphoreOpaqueFD:
         case wgpu::FeatureName::SharedFenceSyncFD:
-        case wgpu::FeatureName::SharedFenceVkSemaphoreSyncFD:
         case wgpu::FeatureName::SharedFenceVkSemaphoreZirconHandle:
         case wgpu::FeatureName::SharedTextureMemoryAHardwareBuffer:
         case wgpu::FeatureName::SharedTextureMemoryD3D11Texture2D:
@@ -1628,6 +1617,8 @@ bool Converter::Convert(interop::GPUFeatureName& out, wgpu::FeatureName in) {
         case wgpu::FeatureName::YCbCrVulkanSamplers:
         case wgpu::FeatureName::DawnLoadResolveTexture:
         case wgpu::FeatureName::DawnPartialLoadResolveTexture:
+        case wgpu::FeatureName::DawnTexelCopyBufferRowAlignment:
+        case wgpu::FeatureName::FlexibleTextureViews:
             return false;
     }
     return false;

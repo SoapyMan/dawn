@@ -1,19 +1,19 @@
 #version 310 es
 
 
-struct vec4f {
-  int i;
+struct tint_struct {
+  int member_0;
 };
 
-vec4 tint_symbol_inner(uint VertexIndex) {
-  vec4f s = vec4f(1);
-  float f = float(s.i);
-  bool b = bool(f);
-  return mix(vec4(0.0f), vec4(1.0f), bvec4(b));
+vec4 v(uint v_1) {
+  tint_struct v_2 = tint_struct(1);
+  float v_3 = float(v_2.member_0);
+  bool v_4 = bool(v_3);
+  return mix(vec4(0.0f), vec4(1.0f), bvec4(v_4));
 }
 void main() {
-  gl_Position = tint_symbol_inner(uint(gl_VertexID));
-  gl_Position[1u] = -(gl_Position.y);
-  gl_Position[2u] = ((2.0f * gl_Position.z) - gl_Position.w);
+  gl_Position = v(uint(gl_VertexID));
+  gl_Position.y = -(gl_Position.y);
+  gl_Position.z = ((2.0f * gl_Position.z) - gl_Position.w);
   gl_PointSize = 1.0f;
 }

@@ -108,12 +108,74 @@ const char* str(BuiltinFn i) {
             return "vector_times_matrix";
         case BuiltinFn::kVectorTimesScalar:
             return "vector_times_scalar";
+        case BuiltinFn::kNormalize:
+            return "normalize";
+        case BuiltinFn::kInverse:
+            return "inverse";
+        case BuiltinFn::kSign:
+            return "sign";
+        case BuiltinFn::kAbs:
+            return "abs";
         case BuiltinFn::kSdot:
             return "sdot";
         case BuiltinFn::kUdot:
             return "udot";
     }
     return "<unknown>";
+}
+
+tint::core::ir::Instruction::Accesses GetSideEffects(BuiltinFn fn) {
+    switch (fn) {
+        case BuiltinFn::kAtomicLoad:
+        case BuiltinFn::kImageDrefGather:
+        case BuiltinFn::kImageFetch:
+        case BuiltinFn::kImageGather:
+        case BuiltinFn::kImageRead:
+        case BuiltinFn::kImageSampleImplicitLod:
+        case BuiltinFn::kImageSampleExplicitLod:
+        case BuiltinFn::kImageSampleDrefImplicitLod:
+        case BuiltinFn::kImageSampleDrefExplicitLod:
+        case BuiltinFn::kSampledImage:
+            return core::ir::Instruction::Accesses{core::ir::Instruction::Access::kLoad};
+
+        case BuiltinFn::kImageWrite:
+            return core::ir::Instruction::Accesses{core::ir::Instruction::Access::kStore};
+
+        case BuiltinFn::kAtomicAnd:
+        case BuiltinFn::kAtomicCompareExchange:
+        case BuiltinFn::kAtomicExchange:
+        case BuiltinFn::kAtomicIadd:
+        case BuiltinFn::kAtomicIsub:
+        case BuiltinFn::kAtomicOr:
+        case BuiltinFn::kAtomicSmax:
+        case BuiltinFn::kAtomicSmin:
+        case BuiltinFn::kAtomicStore:
+        case BuiltinFn::kAtomicUmax:
+        case BuiltinFn::kAtomicUmin:
+        case BuiltinFn::kAtomicXor:
+            return core::ir::Instruction::Accesses{core::ir::Instruction::Access::kLoad,
+                                                   core::ir::Instruction::Access::kStore};
+
+        case BuiltinFn::kArrayLength:
+        case BuiltinFn::kDot:
+        case BuiltinFn::kImageQuerySize:
+        case BuiltinFn::kImageQuerySizeLod:
+        case BuiltinFn::kMatrixTimesMatrix:
+        case BuiltinFn::kMatrixTimesScalar:
+        case BuiltinFn::kMatrixTimesVector:
+        case BuiltinFn::kSelect:
+        case BuiltinFn::kVectorTimesMatrix:
+        case BuiltinFn::kVectorTimesScalar:
+        case BuiltinFn::kSdot:
+        case BuiltinFn::kUdot:
+        case BuiltinFn::kNone:
+        case BuiltinFn::kNormalize:
+        case BuiltinFn::kInverse:
+        case BuiltinFn::kSign:
+        case BuiltinFn::kAbs:
+            break;
+    }
+    return core::ir::Instruction::Accesses{};
 }
 
 }  // namespace tint::spirv

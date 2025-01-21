@@ -403,10 +403,15 @@ MaybeError ValidateLinearTextureData(const TextureDataLayout& layout,
 MaybeError ValidateImageCopyBuffer(DeviceBase const* device,
                                    const ImageCopyBuffer& imageCopyBuffer) {
     DAWN_TRY(device->ValidateObject(imageCopyBuffer.buffer));
+    auto alignment = kTextureBytesPerRowAlignment;
+    if (device->HasFeature(Feature::DawnTexelCopyBufferRowAlignment)) {
+        alignment =
+            device->GetLimits().texelCopyBufferRowAlignmentLimits.minTexelCopyBufferRowAlignment;
+    }
     if (imageCopyBuffer.layout.bytesPerRow != wgpu::kCopyStrideUndefined) {
-        DAWN_INVALID_IF(imageCopyBuffer.layout.bytesPerRow % kTextureBytesPerRowAlignment != 0,
+        DAWN_INVALID_IF(imageCopyBuffer.layout.bytesPerRow % alignment != 0,
                         "bytesPerRow (%u) is not a multiple of %u.",
-                        imageCopyBuffer.layout.bytesPerRow, kTextureBytesPerRowAlignment);
+                        imageCopyBuffer.layout.bytesPerRow, alignment);
     }
 
     return {};
@@ -704,8 +709,11 @@ MaybeError ValidateColorAttachmentBytesPerSample(DeviceBase* device,
         device->GetLimits().v1.maxColorAttachmentBytesPerSample;
     DAWN_INVALID_IF(
         totalByteSize > maxColorAttachmentBytesPerSample,
-        "Total color attachment bytes per sample (%u) exceeds maximum (%u) with formats (%s).",
-        totalByteSize, maxColorAttachmentBytesPerSample, TextureFormatsToString(formats));
+        "Total color attachment bytes per sample (%u) exceeds maximum (%u) with formats "
+        "(%s).%s",
+        totalByteSize, maxColorAttachmentBytesPerSample, TextureFormatsToString(formats),
+        DAWN_INCREASE_LIMIT_MESSAGE(device->GetAdapter(), maxColorAttachmentBytesPerSample,
+                                    totalByteSize));
 
     return {};
 }

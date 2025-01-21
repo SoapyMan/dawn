@@ -37,6 +37,7 @@
 #include "dawn/webgpu_cpp_print.h"
 #include "src/dawn/node/binding/Converter.h"
 #include "src/dawn/node/binding/GPUAdapter.h"
+#include "src/dawn/node/binding/IteratorHelper.h"
 #include "src/dawn/node/binding/TogglesLoader.h"
 
 #if defined(_WIN32)
@@ -143,7 +144,17 @@ interop::Promise<std::optional<interop::Interface<interop::GPUAdapter>>> GPU::re
 
     RequestAdapterOptions nativeOptions;
     nativeOptions.forceFallbackAdapter = options.forceFallbackAdapter;
-    nativeOptions.compatibilityMode = options.compatibilityMode;
+
+    // Convert the feature level.
+    nativeOptions.featureLevel = FeatureLevel::Undefined;
+    if (options.featureLevel == "compatibility") {
+        nativeOptions.featureLevel = FeatureLevel::Compatibility;
+    } else if (options.featureLevel == "core") {
+        nativeOptions.featureLevel = FeatureLevel::Core;
+    } else {
+        promise.Resolve({});
+        return promise;
+    }
 
     // Convert the power preference.
     nativeOptions.powerPreference = PowerPreference::Undefined;
@@ -202,10 +213,15 @@ interop::Promise<std::optional<interop::Interface<interop::GPUAdapter>>> GPU::re
     DawnTogglesDescriptor togglesDescriptor = togglesLoader.GetDescriptor();
     nativeOptions.nextInChain = &togglesDescriptor;
 
-    auto adapters = instance_->EnumerateAdapters(&nativeOptions);
-    if (adapters.empty()) {
+    auto nativeAdapters = instance_->EnumerateAdapters(&nativeOptions);
+    if (nativeAdapters.empty()) {
         promise.Resolve({});
         return promise;
+    }
+
+    std::vector<wgpu::Adapter> adapters(nativeAdapters.size());
+    for (uint32_t i = 0; i < nativeAdapters.size(); ++i) {
+        adapters[i] = wgpu::Adapter(nativeAdapters[i].Get());
     }
 
     // Check for specific adapter device name.
@@ -215,13 +231,13 @@ interop::Promise<std::optional<interop::Interface<interop::GPUAdapter>>> GPU::re
         deviceName = *f;
     }
 
-    dawn::native::Adapter* adapter = nullptr;
+    wgpu::Adapter* adapter = nullptr;
+    wgpu::AdapterInfo adapterInfo;
     for (auto& a : adapters) {
-        wgpu::AdapterInfo info;
-        a.GetInfo(&info);
+        a.GetInfo(&adapterInfo);
 
         if (!deviceName.empty() &&
-            std::string_view(info.device).find(deviceName) == std::string::npos) {
+            std::string_view(adapterInfo.device).find(deviceName) == std::string::npos) {
             continue;
         }
 
@@ -257,9 +273,7 @@ interop::Promise<std::optional<interop::Interface<interop::GPUAdapter>>> GPU::re
     }
 
     if (flags_.Get("verbose")) {
-        wgpu::AdapterInfo info;
-        adapter->GetInfo(&info);
-        std::cout << "using GPU adapter: " << info.device << "\n";
+        std::cout << "using GPU adapter: " << adapterInfo.device << "\n";
     }
 
     auto gpuAdapter = GPUAdapter::Create<GPUAdapter>(env, *adapter, flags_, async_);
@@ -298,6 +312,9 @@ interop::Interface<interop::WGSLLanguageFeatures> GPU::getWgslLanguageFeatures(N
             return out;
         }
         size_t getSize(Napi::Env env) { return features_.size(); }
+        Napi::Value iterator(const Napi::CallbackInfo& info) {
+            return CreateIterator(info, this->features_);
+        }
 
         InteropWGSLFeatureSet features_;
     };

@@ -33,6 +33,7 @@
 #include "src/tint/lang/core/ir/module.h"
 #include "src/tint/lang/core/ir/transform/shader_io.h"
 #include "src/tint/lang/core/ir/validator.h"
+#include "src/tint/utils/containers/vector.h"
 
 using namespace tint::core::fluent_types;     // NOLINT
 using namespace tint::core::number_suffixes;  // NOLINT
@@ -50,6 +51,9 @@ struct StateImpl : core::ir::transform::ShaderIOBackendState {
     /// The output variables.
     Vector<core::ir::Var*, 4> output_vars;
 
+    /// The original type of vertex input variables that we are bgra-swizzling. Keyed by location.
+    Hashmap<uint32_t, const core::type::Type*, 1> bgra_swizzle_original_types;
+
     /// The configuration options.
     const ShaderIOConfig& config;
 
@@ -59,56 +63,6 @@ struct StateImpl : core::ir::transform::ShaderIOBackendState {
 
     /// Destructor
     ~StateImpl() override {}
-
-    /// Retrieve the gl_ string corresponding to a builtin.
-    /// @param builtin the builtin
-    /// @param address_space the address space (input or output)
-    /// @returns the gl_ string corresponding to that builtin
-    const char* GLSLBuiltinToString(core::BuiltinValue builtin, core::AddressSpace address_space) {
-        switch (builtin) {
-            case core::BuiltinValue::kPosition: {
-                if (address_space == core::AddressSpace::kOut) {
-                    return "gl_Position";
-                }
-                if (address_space == core::AddressSpace::kIn) {
-                    return "gl_FragCoord";
-                }
-                TINT_UNREACHABLE();
-            }
-            case core::BuiltinValue::kVertexIndex:
-                return "gl_VertexID";
-            case core::BuiltinValue::kInstanceIndex:
-                return "gl_InstanceID";
-            case core::BuiltinValue::kFrontFacing:
-                return "gl_FrontFacing";
-            case core::BuiltinValue::kFragDepth:
-                return "gl_FragDepth";
-            case core::BuiltinValue::kLocalInvocationId:
-                return "gl_LocalInvocationID";
-            case core::BuiltinValue::kLocalInvocationIndex:
-                return "gl_LocalInvocationIndex";
-            case core::BuiltinValue::kGlobalInvocationId:
-                return "gl_GlobalInvocationID";
-            case core::BuiltinValue::kNumWorkgroups:
-                return "gl_NumWorkGroups";
-            case core::BuiltinValue::kWorkgroupId:
-                return "gl_WorkGroupID";
-            case core::BuiltinValue::kSampleIndex:
-                return "gl_SampleID";
-            case core::BuiltinValue::kSampleMask: {
-                if (address_space == core::AddressSpace::kIn) {
-                    return "gl_SampleMaskIn";
-                } else {
-                    return "gl_SampleMask";
-                }
-                TINT_UNREACHABLE();
-            }
-            case core::BuiltinValue::kPointSize:
-                return "gl_PointSize";
-            default:
-                TINT_UNREACHABLE();
-        }
-    }
 
     /// Declare a global variable for each IO entry listed in @p entries.
     /// @param vars the list of variables
@@ -123,11 +77,10 @@ struct StateImpl : core::ir::transform::ShaderIOBackendState {
                   const char* name_suffix) {
         for (auto io : entries) {
             StringStream name;
+            name << ir.NameOf(func).Name();
 
             const core::type::MemoryView* ptr = nullptr;
             if (io.attributes.builtin) {
-                name << GLSLBuiltinToString(*io.attributes.builtin, addrspace);
-
                 switch (io.attributes.builtin.value()) {
                     case core::BuiltinValue::kSampleMask:
                         ptr = ty.ptr(addrspace, ty.array(ty.i32(), 1), access);
@@ -141,17 +94,27 @@ struct StateImpl : core::ir::transform::ShaderIOBackendState {
                         ptr = ty.ptr(addrspace, io.type, access);
                         break;
                 }
+                name << "_" << *io.attributes.builtin;
             } else {
-                name << ir.NameOf(func).Name();
+                auto* type = io.type;
 
                 if (io.attributes.location) {
                     name << "_loc" << io.attributes.location.value();
                     if (io.attributes.blend_src.has_value()) {
                         name << "_idx" << io.attributes.blend_src.value();
                     }
+
+                    // When doing the BGRA swizzle, always emit vec4f. The component type must be
+                    // f32 for unorm8x4-bgra, but the number of components can be anything. Even if
+                    // the input variable is an f32 we need to get the full vec4f when swizzling as
+                    // the components are reordered.
+                    if (config.bgra_swizzle_locations.count(*io.attributes.location) != 0) {
+                        bgra_swizzle_original_types.Add(*io.attributes.location, io.type);
+                        type = ty.vec4<f32>();
+                    }
                 }
                 name << name_suffix;
-                ptr = ty.ptr(addrspace, io.type, access);
+                ptr = ty.ptr(addrspace, type, access);
             }
 
             // Create an IO variable and add it to the root block.
@@ -199,6 +162,18 @@ struct StateImpl : core::ir::transform::ShaderIOBackendState {
                 default:
                     break;
             }
+        }
+
+        // Replace the value with the BGRA-swizzled version of it when required.
+        if (inputs[idx].attributes.location &&
+            config.bgra_swizzle_locations.count(*inputs[idx].attributes.location) != 0) {
+            auto* original_type =
+                *bgra_swizzle_original_types.Get(*inputs[idx].attributes.location);
+
+            Vector<uint32_t, 4> swizzles = {2, 1, 0, 3};
+            swizzles.Resize(original_type->Elements(nullptr, 1).count);
+
+            value = builder.Swizzle(original_type, value, swizzles)->Result(0);
         }
 
         return value;
